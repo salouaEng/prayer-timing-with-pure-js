@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Horaires des Prières - Maroc</title>
+    <style>
+        :root {
+            --primary-color: #2c5f2d;
+            --secondary-color: #97bc62;
+            --background-color: #f3f4ed;
+        }
+
+        body {
+            background-color: var(--background-color);
+            font-family: 'Segoe UI', sans-serif;
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            background: linear-gradient(145deg, var(--primary-color), #1e401f);
+            border-radius: 15px;
+            padding: 2rem;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin: 20px;
+            position: relative;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            color: white;
+        }
+
+        select {
+            padding: 8px 15px;
+            border-radius: 25px;
+            border: 2px solid var(--secondary-color);
+            background: rgba(255, 255, 255, 0.9);
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        select:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 10px var(--secondary-color);
+        }
+
+        .date-display {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+
+        .prayer-list {
+            display: grid;
+            gap: 12px;
+        }
+
+        .prayer-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px 20px;
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: transform 0.3s ease;
+        }
+
+        .prayer-item:hover {
+            transform: translateX(10px);
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .loading {
+            text-align: center;
+            color: white;
+            padding: 20px;
+            display: none;
+        }
+
+        .error-message {
+            color: #ff6b6b;
+            text-align: center;
+            display: none;
+            margin-top: 1rem;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 1.5rem;
+            }
+            
+            .header {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+    </style>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
+</head>
+<body onload="initApp()">
+    <div class="container">
+        <div class="header">
+            <div>
+                <h2 style="margin: 0">Horaires des Prières</h2>
+                <span class="date-display" id="date"></span>
+            </div>
+            <select id="city" onchange="fetchPrayerTimes()">
+                <option value="Casablanca">Casablanca</option>
+                <option value="Rabat">Rabat</option>
+                <option value="Marrakesh">Marrakech</option>
+                <option value="Agadir">Agadir</option>
+                <option value="Fes">Fès</option>
+                <option value="Tanger">Tanger</option>
+            </select>
+        </div>
+
+        <div class="loading" id="loading">
+            Chargement en cours...
+        </div>
+
+        <div class="prayer-list" id="prayerTimes">
+            <!-- Les horaires seront injectés ici -->
+        </div>
+
+        <div class="error-message" id="errorMessage"></div>
+    </div>
+
+    <script>
+        // Configuration initiale
+        const cities = {
+            'Casablanca': 'دار البيضاء',
+            'Rabat': 'الرباط',
+            'Marrakesh': 'مراكش',
+            'Agadir': 'أڭادير',
+            'Fes': 'فاس',
+            'Tanger': 'طنجة'
+        };
+
+        function initApp() {
+            updateDateTime();
+            fetchPrayerTimes();
+            setInterval(updateDateTime, 1000);
+        }
+
+        function updateDateTime() {
+            const dateElement = document.getElementById('date');
+            const now = moment();
+            dateElement.textContent = now.format('dddd D MMMM YYYY | HH:mm:ss');
+        }
+
+        async function fetchPrayerTimes() {
+            const city = document.getElementById('city').value;
+            const date = moment().format('DD-MM-YYYY');
+            showLoading(true);
+            hideError();
+            try {
+                const response = await axios.get(
+                    `https://api.aladhan.com/v1/timingsByCity/${date}?city=${city}&country=MA&method=2`
+                );
+
+                const timings = response.data.data.timings;
+                displayPrayerTimes(timings);
+            } catch (error) {
+                showError("Erreur de connexion. Veuillez réessayer.");
+                console.error("Erreur API:", error);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function displayPrayerTimes(timings) {
+            const prayerTimesContainer = document.getElementById('prayerTimes');
+            const prayerNames = {
+                Fajr: 'الفجر',
+                Dhuhr: 'الظهر',
+                Asr: 'العصر',
+                Maghrib: 'المغرب',
+                Isha: 'العشاء'
+            };
+
+            prayerTimesContainer.innerHTML = Object.entries(prayerNames)
+                .map(([key, name]) => `
+                    <div class="prayer-item">
+                        <span>${name}</span>
+                        <span>${timings[key]}</span>
+                    </div>
+                `).join('');
+        }
+
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+        }
+
+        function showError(message) {
+            const errorElement = document.getElementById('errorMessage');
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+        }
+
+        function hideError() {
+            document.getElementById('errorMessage').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
